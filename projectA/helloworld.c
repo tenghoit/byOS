@@ -1,19 +1,6 @@
-void main()
-{
+void printHelloWorld(void);
 
-    int start = 0x8000;
-
-    int charPerLine = 80;
-    int totalLines = 25;
-    int charSize = 2;
-
-    int curr;
-    for(curr = start; curr < start + charPerLine * totalLines * charSize; curr += charSize){
-        putInMemory(0xB000, curr, 0x20);
-        putInMemory(0xB000, curr+1, 0x7); 
-    }
-
-    /*
+void printHelloWorld(){
     putInMemory(0xB000, 0x80A0, 0x48);
     putInMemory(0xB000, 0x80A1, 0x7);
     
@@ -43,9 +30,4 @@ void main()
 
     putInMemory(0xB000, 0x80B2, 0x44);
     putInMemory(0xB000, 0x80B3, 0x7); 
-    */
-
-
-
 }
-
