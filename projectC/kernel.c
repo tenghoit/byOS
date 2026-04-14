@@ -1,17 +1,25 @@
 void printString(char*);
 void readString(char*);
 void readSector(char*, int);
+void readFile(char*, char*);
+void loadFile(char*, int*);
+
+void getEntryName(char*, char*, int);
+void getEntrySectors(int*, char*, int);
+
+int stringEquals(char*, char*);
+int getStringLength(char*);
 int mod(int, int);
 int div(int, int);
+
 void makeInterrupt21(void);
 
 void main(){
 
-    char line[80];
     char buffer[13312];
     makeInterrupt21();
 
-    interrupt(0.21, 3, "messag\0", buffer, 0);
+    interrupt(0x21, 3, "messag\0", buffer, 0);
 
     interrupt(0x21, 0, buffer, 0, 0);
 
@@ -65,7 +73,7 @@ void readSector(char* buffer, int sector){
     int al = 1;
     int ax = ah * 256 + al;
 
-    int ch;
+    int ch = mod(sector, 36);
     int cl = mod(sector, 18) + 1;
     int cx = ch * 256 + cl;
 
@@ -78,34 +86,41 @@ void readSector(char* buffer, int sector){
 
 void readFile(char* fileName, char* buffer){
 
-    char dirSector[512];
-    readSector(dirSector, 2);
-
     int totalFileEntries = 16;
     int fileEntrySize = 32;
     int fileNameSize = 6;
     int fileSectors = 26;
 
+    char dirSector[512];
+    char entryName[6];
+    int entrySectors[26];
     int i;
+
+    readSector(dirSector, 2);
+
     for(i = 0; i < totalFileEntries; i++){
         int start = i * fileEntrySize;
-        char* entryName = getEntryName(dirSector, i);
-        if(stringEquals(fileName, entryName)){
-            int* entrySectors = getEntrySectors(dirSector, i);
-
+        getEntryName(entryName, dirSector, i);
+        if(stringEquals(fileName, entryName) == 1){
+            getEntrySectors(entrySectors, dirSector, i);
+            loadFile(buffer, entrySectors);
             return;
         }
     }
-    return
-
-    interrupt(0x21, 3, buffer, cx, dx);
 }
 
-char* getEntryName(char* dirSector, int entryIndex){
+void loadFile(char* buffer, int* entrySectors){
+    int fileSectors = 26;
+    int i;
+    for(i = 0; i < fileSectors; i++){
+        readSector(buffer + (i * 512), entrySectors[i]);
+    }
+}
+
+void getEntryName(char* entryName, char* dirSector, int entryIndex){
     int fileEntrySize = 32;
     int fileNameSize = 6;
 
-    char entryName[fileNameSize];
     int start = entryIndex * fileEntrySize;
     int end = start + fileNameSize;
 
@@ -113,15 +128,14 @@ char* getEntryName(char* dirSector, int entryIndex){
     for(i = start; i < end; i++){
         entryName[i - start] = dirSector[i];
     }
-    return entryName;
 }   
 
-int* getEntrySectors(char* dirSector, int entryIndex){
+void getEntrySectors(int* entrySector, char* dirSector, int entryIndex){
     int fileEntrySize = 32;
     int fileNameSize = 6;
     int fileSectors = 26;
 
-    int entrySectors[fileSectors];
+    int entrySectors[26];
     int start = entryIndex * fileEntrySize + fileNameSize;
     int end = start + fileSectors;
 
@@ -129,7 +143,6 @@ int* getEntrySectors(char* dirSector, int entryIndex){
     for(i = start; i < end; i++){
         entrySectors[i - start] = dirSector[i];
     }
-    return entrySectors;
 }
 
 int stringEquals(char* str1, char* str2){
