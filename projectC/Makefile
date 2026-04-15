@@ -1,10 +1,10 @@
-floppya.img: bootload kernel map.img dir.img loadFile message.txt
+floppya.img: bootload kernel map.img dir.img loadFile tstpr2
 	dd if=/dev/zero of=floppya.img bs=512 count=2880
 	dd if=bootload of=floppya.img bs=512 count=1 conv=notrunc
 	dd if=map.img of=floppya.img bs=512 count=1 seek=1 conv=notrunc
 	dd if=dir.img of=floppya.img bs=512 count=1 seek=2 conv=notrunc
 	dd if=kernel of=floppya.img bs=512 conv=notrunc seek=3
-	./loadFile message.txt
+	./loadFile tstpr2
 	
 
 kernel: kernel.o kernel_asm.o 
