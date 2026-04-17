@@ -1,6 +1,6 @@
 bootload
 floppya.img
 kernel
-kernel_asm.o
-kernel.o
 loadFile
+*.o
+shell

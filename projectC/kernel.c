@@ -19,23 +19,12 @@ void makeInterrupt21(void);
 void main(){
 
     makeInterrupt21();
-    interrupt(0x21, 4, "tstpr2\0", 0x2000, 0);
-    interrupt(0x21, 5, 0, 0, 0);
-
-    while (1)
-    {
-        /*
-        interrupt(0x21, 1, line, 0, 0);
-        interrupt(0x21, 0, line, 0, 0);
-        interrupt(0x10,0xe*256+0xa, 0, 0, 0);
-        interrupt(0x10,0xe*256+0xd, 0, 0, 0);
-        */
-    }
     
+    interrupt(0x21, 4, "shell\0", 0x2000, 0);
 }
 
 void terminate(){
-    while(1);
+    interrupt(0x21, 4, "shell\0", 0x2000, 0);
 }
 
 void executeProgram(char* name, int segment){
@@ -220,6 +209,8 @@ void handleInterrupt21(int ax, int bx, int cx, int dx){
         executeProgram(bx, cx);
     }else if(ax == 5){
         terminate();
+    }else if(ax == 6){
+        dx = stringEquals(bx, cx);
     }else{
         printString("Invalid interrupt!\0");
     }
