@@ -111,13 +111,18 @@ void readFile(char* fileName, char* buffer){
 
     for(i = 0; i < totalFileEntries; i++){
         getEntryName(entryName, dirSector, i);
-
+        interrupt(0x21, 0, entryName, 0, 0);
         if(stringEquals(fileName, entryName) == 1){
+            interrupt(0x21, 0, "found file\0", 0, 0);
             getEntrySectors(entrySectors, dirSector, i);
             loadFile(buffer, entrySectors);
             break;
         }
     }
+    /*
+    interrupt(0x21, 0, "did not find file\0", 0, 0);
+    */
+    
 }
 
 void loadFile(char* buffer, int* entrySectors){
@@ -126,6 +131,7 @@ void loadFile(char* buffer, int* entrySectors){
     for(i = 0; i < fileSectors; i++){
         readSector(buffer + (i * 512), entrySectors[i]);
     }
+    interrupt(0x21, 0, "loaded file\0", 0, 0);
 }
 
 void getEntryName(char* entryName, char* dirSector, int entryIndex){

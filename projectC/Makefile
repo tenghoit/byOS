@@ -5,6 +5,7 @@ floppya.img: bootload kernel map.img dir.img loadFile shell
 	dd if=dir.img of=floppya.img bs=512 count=1 seek=2 conv=notrunc
 	dd if=kernel of=floppya.img bs=512 conv=notrunc seek=3
 	./loadFile shell
+	./loadFile message.txt
 	
 
 kernel: kernel.o kernel_asm.o 
