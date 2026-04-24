@@ -13,40 +13,35 @@ void main(){
 
     interrupt(0x21, 0, ">\0", 0, 0);
     interrupt(0X21, 1, line, 0, 0);
-    interrupt(0x21, 0, line, 0, 0);
+    interrupt(0x21, 0, line, 1, 0);
 
     parseCommand(line, operation, operand);
-
         /* 
-    interrupt(0x21, 0, operation, 0, 0);
-    interrupt(0x10,0xe*256+0xa, 0, 0, 0);
-    interrupt(0x10,0xe*256+0xd, 0, 0, 0);
+    interrupt(0x21, 0, operation, 1, 0);
 
-    interrupt(0x21, 0, operand, 0, 0);
-    interrupt(0x10,0xe*256+0xa, 0, 0, 0);
-    interrupt(0x10,0xe*256+0xd, 0, 0, 0);
+    interrupt(0x21, 0, operand, 1, 0);
         */
-
-
-
     executeCommand(operation, operand);
-
-    interrupt(0x10,0xe*256+0xa, 0, 0, 0);
-    interrupt(0x10,0xe*256+0xd, 0, 0, 0);
 
 }
 
 void executeCommand(char* operation, char* operand){
     char buffer[13312];
 
-    if(stringEquals(operation, "type\0") == 1){
-        interrupt(0x21, 0, "successful cmd match to type\0", 0, 0);
+    if(stringEquals(operation, "type\0")){
+        interrupt(0x21, 0, "running type()\0", 1, 0);
         
         interrupt(0x21, 3, operand, buffer, 0);
         interrupt(0x21, 0, buffer, 0, 0);
+        /* 
+        
+        */
+    }else if (stringEquals(operation, "execute\0") == 1){
+        interrupt(0x21, 0, "running execute()\0", 1, 0);
+        interrupt(0x21, 4, operand, 0x2000, 0);
 
     }else{
-        interrupt(0x21, 0, "no match\0", 0, 0);
+        interrupt(0x21, 0, "invalid command\0", 1, 0);
     }
 }
 
@@ -58,7 +53,7 @@ void parseCommand(char* cmd, char* operation, char* operand){
 
     while(cmd[index] != 0x0){
         if(cmd[index] == 0x20){
-
+            operation[operationIndex] = 0x0;
             index++;
             break;
         }
@@ -73,6 +68,7 @@ void parseCommand(char* cmd, char* operation, char* operand){
         index++;
         operandIndex++;
     }
+    operand[operandIndex] = 0x0;
  
 }
 

@@ -1,6 +1,5 @@
 void executeProgram(char*, int);
-void printString(char*);
-void printLine(char*);
+void printString(char*, int);
 void readString(char*);
 void readSector(char*, int);
 void readFile(char*, char*);
@@ -37,10 +36,12 @@ void executeProgram(char* name, int segment){
         putInMemory(segment, i, buffer[i]);
     }
 
+    interrupt(0x21, 0, "executing \0", 0, 0);
+    interrupt(0x21, 0, name, 1, 0);
     launchProgram(segment);
 }
 
-void printString(char* str){
+void printString(char* str, int newLine){
     char al = 'Q';
     char ah = 0xe;
 
@@ -51,12 +52,11 @@ void printString(char* str){
         interrupt(0x10, ax, 0, 0, 0);
         index++;
     }
-}
 
-void printLine(char* str){
-    printString(str);
-    interrupt(0x10,0xe*256+0xa, 0, 0, 0);
-    interrupt(0x10,0xe*256+0xd, 0, 0, 0);
+    if(newLine == 1){
+        interrupt(0x10,0xe*256+0xa, 0, 0, 0);
+        interrupt(0x10,0xe*256+0xd, 0, 0, 0);
+    }
 }
 
 void readString(char* str){
@@ -106,22 +106,35 @@ void readFile(char* fileName, char* buffer){
     char entryName[7];
     int entrySectors[26];
     int i;
+    int found = 0;
 
     readSector(dirSector, 2);
+    
+    interrupt(0x21, 0, "Files: \0", 1, 0);
 
     for(i = 0; i < totalFileEntries; i++){
         getEntryName(entryName, dirSector, i);
-        interrupt(0x21, 0, entryName, 0, 0);
+
+        interrupt(0x21, 0, entryName, 1, 0);
+        interrupt(0x21, 0, "check\0", 1, 0);
+
         if(stringEquals(fileName, entryName) == 1){
-            interrupt(0x21, 0, "found file\0", 0, 0);
+            interrupt(0x21, 0, "found \0", 0, 0);
+            interrupt(0x21, 0, fileName, 1, 0);
+
             getEntrySectors(entrySectors, dirSector, i);
             loadFile(buffer, entrySectors);
+
+            found = 1;
             break;
         }
     }
-    /*
-    interrupt(0x21, 0, "did not find file\0", 0, 0);
-    */
+    
+    if(found == 0){
+        interrupt(0x21, 0, "could not find \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+    }
+    
     
 }
 
@@ -131,7 +144,7 @@ void loadFile(char* buffer, int* entrySectors){
     for(i = 0; i < fileSectors; i++){
         readSector(buffer + (i * 512), entrySectors[i]);
     }
-    interrupt(0x21, 0, "loaded file\0", 0, 0);
+    interrupt(0x21, 0, "loaded file\0", 1, 0);
 }
 
 void getEntryName(char* entryName, char* dirSector, int entryIndex){
@@ -164,16 +177,25 @@ void getEntrySectors(int* entrySectors, char* dirSector, int entryIndex){
 
 int stringEquals(char* str1, char* str2){
     int index = 0;
+    int i;
 
     if (getStringLength(str1) != getStringLength(str2)){
         return 0;
     }
 
-    while(str1[index] != 0x0){
+    /*
+        while(str1[index] != 0x0){
         if(str1[index] != str2[index]){
             return 0;
         }
         index++;
+    }
+    */
+
+    for(i = 0; i < getStringLength(str1); i++){
+        if(str1[i] != str2[i]){
+            return 0;
+        }
     }
     return 1;
 }
@@ -204,7 +226,7 @@ int div(int a, int b){
 void handleInterrupt21(int ax, int bx, int cx, int dx){
 
     if(ax == 0){
-        printString(bx);
+        printString(bx, cx);
     }else if(ax == 1){
         readString(bx);
     }else if (ax == 2){
@@ -218,6 +240,6 @@ void handleInterrupt21(int ax, int bx, int cx, int dx){
     }else if(ax == 6){
         dx = stringEquals(bx, cx);
     }else{
-        printString("Invalid interrupt!\0");
+        printString("Invalid interrupt!\0", 1);
     }
 }
