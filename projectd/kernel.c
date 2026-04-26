@@ -1,13 +1,19 @@
+void terminate(void);
 void executeProgram(char*, int);
 void printString(char*, int);
 void readString(char*);
 void readSector(char*, int);
+void writeSector(char*, int);
 void readFile(char*, char*);
+void writeFile(char*, char*, int);
+void deleteFile(char*);
 void loadFile(char*, int*);
 
+void getEntryNames(char**, char*);
 void getEntryName(char*, char*, int);
 void getEntrySectors(int*, char*, int);
 
+int getStringIndex(char**, int, char*);
 int stringEquals(char*, char*);
 int getStringLength(char*);
 int mod(int, int);
@@ -95,6 +101,22 @@ void readSector(char* buffer, int sector){
     interrupt(0x13, ax, buffer, cx, dx);
 }
 
+void writeSector(char* buffer, int sector){
+    int ah = 3;
+    int al = 1;
+    int ax = ah * 256 + al;
+
+    int ch = div(sector, 36);
+    int cl = mod(sector, 18) + 1;
+    int cx = ch * 256 + cl;
+
+    int dh = mod(div(sector, 18), 2);
+    int dl = 0;
+    int dx = dh * 256 + dl;
+
+    interrupt(0x13, ax, buffer, cx, dx);
+}
+
 void readFile(char* fileName, char* buffer){
 
     int totalFileEntries = 16;
@@ -107,12 +129,29 @@ void readFile(char* fileName, char* buffer){
     int entrySectors[26];
     int i;
     int found = 0;
+    int targetIndex;
+
+    char entryNames[16][7];
 
     readSector(dirSector, 2);
-    
+
     interrupt(0x21, 0, "Files: \0", 1, 0);
 
-    for(i = 0; i < totalFileEntries; i++){
+    getEntryNames(entryNames, dirSector);
+
+    targetIndex = getStringIndex(entryNames, totalFileEntries, fileName);
+    
+    if(targetIndex == -1){
+        interrupt(0x21, 0, "could not find \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+        return;
+    }
+
+    getEntrySectors(entrySectors, dirSector, targetIndex);
+    loadFile(buffer, entrySectors);
+
+    /*
+        for(i = 0; i < totalFileEntries; i++){
         getEntryName(entryName, dirSector, i);
 
         interrupt(0x21, 0, entryName, 1, 0);
@@ -128,13 +167,93 @@ void readFile(char* fileName, char* buffer){
             break;
         }
     }
-    
+
     if(found == 0){
         interrupt(0x21, 0, "could not find \0", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
     }
     
+    */
+
+
     
+
+    
+    
+}
+
+void writeFile(char* fileName, char* buffer, int numberOfSectors){
+    char dirSector[512];
+    char mapSector[512];
+
+    readSector(mapSector, 1);
+    readSector(dirSector, 2);  
+}
+
+void deleteFile(char* fileName){
+    char dirSector[512];
+    char mapSector[512];
+
+    int i;
+    int j;
+    int totalFileEntries = 16;
+    int fileEntrySize = 32;
+    int fileNameSize = 6;
+    int fileSectors = 26;
+
+    char entryName[7];
+    int entrySectors[26];
+
+    int found = 0;
+
+    readSector(mapSector, 1);
+    readSector(dirSector, 2);
+
+    for(i = 0; i < totalFileEntries; i++){
+        getEntryName(entryName, dirSector, i);
+
+        interrupt(0x21, 0, entryName, 1, 0);
+
+        if(stringEquals(fileName, entryName) == 1){
+
+            interrupt(0x21, 0, "found \0", 0, 0);
+            interrupt(0x21, 0, fileName, 1, 0);
+
+            /*
+            setting first byte of filename to 0x00
+            int startFileName = i * fileEntrySize;
+            */
+            
+            dirSector[i * fileEntrySize] = 0x00;
+
+            interrupt(0x21, 0, "cleared filename: \0", 0, 0);
+            interrupt(0x21, 0, fileName, 1, 0);
+
+            getEntrySectors(entrySectors, dirSector, i);
+            
+            /*clearing sectors*/
+            for(j = 0; j < sizeof(entrySectors);j++){
+                if(entrySectors[j] == 0x00){
+                    break;
+                }
+                mapSector[entrySectors[j] + 1] = 0x00;
+            }
+
+            interrupt(0x21, 0, "cleared sectors: \0", 0, 0);
+            interrupt(0x21, 0, fileName, 1, 0);
+            
+            found = 1;
+            break;
+        }
+    }
+
+    if(found == 0){
+        interrupt(0x21, 0, "could not find \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+    }
+    
+    interrupt(0x21, 6, mapSector, 1, 0);
+    interrupt(0x21, 6, dirSector, 2, 0);
 }
 
 void loadFile(char* buffer, int* entrySectors){
@@ -144,6 +263,18 @@ void loadFile(char* buffer, int* entrySectors){
         readSector(buffer + (i * 512), entrySectors[i]);
     }
     interrupt(0x21, 0, "loaded file\0", 1, 0);
+}
+
+
+
+void getEntryNames(char** entryNames, char* dirSector){
+    int totalFileEntries = 16;
+    
+    int i;
+    for(i = 0; i < totalFileEntries; i++){
+        getEntryName(entryNames[i], dirSector, i);
+        interrupt(0x21, 0, entryNames[i], 1, 0);
+    }
 }
 
 void getEntryName(char* entryName, char* dirSector, int entryIndex){
@@ -174,6 +305,24 @@ void getEntrySectors(int* entrySectors, char* dirSector, int entryIndex){
     }
 }
 
+int getStringIndex(char** strings, int length, char* target){
+    int i = 0;
+    for(i = 0; i < length; i++){
+        interrupt(0x21, 0, strings[i], 0, 0);
+        interrupt(0x21, 0, " \0", 0, 0);
+        interrupt(0x21, 0, target, 0, 0);
+        interrupt(0x21, 0, " \0", 0, 0);
+
+        if(stringEquals(target, strings[i]) == 1){
+            interrupt(0x21, 0, "1\0", 1, 0);
+            return i;
+        }else{
+            interrupt(0x21, 0, "0\0", 1, 0);
+        }
+    }
+    return -1;
+}
+
 int stringEquals(char* str1, char* str2){
     int index = 0;
     int i;
@@ -181,15 +330,6 @@ int stringEquals(char* str1, char* str2){
     if (getStringLength(str1) != getStringLength(str2)){
         return 0;
     }
-
-    /*
-        while(str1[index] != 0x0){
-        if(str1[index] != str2[index]){
-            return 0;
-        }
-        index++;
-    }
-    */
 
     for(i = 0; i < getStringLength(str1); i++){
         if(str1[i] != str2[i]){
@@ -237,7 +377,11 @@ void handleInterrupt21(int ax, int bx, int cx, int dx){
     }else if(ax == 5){
         terminate();
     }else if(ax == 6){
-        dx = stringEquals(bx, cx);
+        writeSector(bx, cx);
+    }else if(ax == 7){
+        deleteFile(bx);
+    }else if(ax == 8){
+        writeFile(bx, cx, dx);
     }else{
         printString("Invalid interrupt!\0", 1);
     }

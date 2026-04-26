@@ -40,6 +40,10 @@ void executeCommand(char* operation, char* operand){
         interrupt(0x21, 0, "running execute()\0", 1, 0);
         interrupt(0x21, 4, operand, 0x2000, 0);
 
+    }else if (stringEquals(operation, "delete\0") == 1){
+        interrupt(0x21, 0, "running delete()\0", 1, 0);
+        interrupt(0x21, 7, operand, 0, 0);
+
     }else{
         interrupt(0x21, 0, "invalid command\0", 1, 0);
     }
