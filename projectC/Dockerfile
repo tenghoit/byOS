@@ -18,3 +18,4 @@ WORKDIR /work
 # Start in a bash shell
 CMD ["/bin/bash"]
 
+# docker run -it --rm -v $(pwd):/work os-dev

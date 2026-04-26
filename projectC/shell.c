@@ -63,7 +63,7 @@ void parseCommand(char* cmd, char* operation, char* operand){
         operationIndex++;
     }
 
-    while(cmd[index] != 0x0){
+    while(cmd[index] != 0x0 && cmd[index] != 0xa){
         operand[operandIndex] = cmd[index];
         index++;
         operandIndex++;
