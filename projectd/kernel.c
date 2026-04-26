@@ -9,11 +9,12 @@ void writeFile(char*, char*, int);
 void deleteFile(char*);
 void loadFile(char*, int*);
 
-void getEntryNames(char**, char*);
+void getEntryNames(char[][7], char*);
 void getEntryName(char*, char*, int);
 void getEntrySectors(int*, char*, int);
 
-int getStringIndex(char**, int, char*);
+int getEntryIndex(char[][7], char*);
+void insertEntry(char*, char*, int);
 int stringEquals(char*, char*);
 int getStringLength(char*);
 int mod(int, int);
@@ -119,18 +120,9 @@ void writeSector(char* buffer, int sector){
 
 void readFile(char* fileName, char* buffer){
 
-    int totalFileEntries = 16;
-    int fileEntrySize = 32;
-    int fileNameSize = 6;
-    int fileSectors = 26;
-
     char dirSector[512];
-    char entryName[7];
     int entrySectors[26];
-    int i;
-    int found = 0;
     int targetIndex;
-
     char entryNames[16][7];
 
     readSector(dirSector, 2);
@@ -139,12 +131,15 @@ void readFile(char* fileName, char* buffer){
 
     getEntryNames(entryNames, dirSector);
 
-    targetIndex = getStringIndex(entryNames, totalFileEntries, fileName);
+    targetIndex = getEntryIndex(entryNames, fileName);
     
     if(targetIndex == -1){
         interrupt(0x21, 0, "could not find \0", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
         return;
+    }else{
+        interrupt(0x21, 0, "found \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
     }
 
     getEntrySectors(entrySectors, dirSector, targetIndex);
@@ -185,31 +180,66 @@ void readFile(char* fileName, char* buffer){
 void writeFile(char* fileName, char* buffer, int numberOfSectors){
     char dirSector[512];
     char mapSector[512];
+    char entryNames[16][7];
+    int targetIndex;
 
     readSector(mapSector, 1);
     readSector(dirSector, 2);  
+
+    getEntryNames(entryNames, dirSector);
+    targetIndex = getEntryIndex(entryNames, "\0");
+
+    insertEntry(dirSector, fileName, targetIndex);
 }
 
 void deleteFile(char* fileName){
     char dirSector[512];
     char mapSector[512];
 
-    int i;
     int j;
-    int totalFileEntries = 16;
     int fileEntrySize = 32;
-    int fileNameSize = 6;
-    int fileSectors = 26;
-
-    char entryName[7];
     int entrySectors[26];
-
-    int found = 0;
+    char entryNames[16][7];
+    int targetIndex;
 
     readSector(mapSector, 1);
     readSector(dirSector, 2);
 
-    for(i = 0; i < totalFileEntries; i++){
+    getEntryNames(entryNames, dirSector);
+
+    targetIndex = getEntryIndex(entryNames, fileName);
+    
+    if(targetIndex == -1){
+        interrupt(0x21, 0, "could not find \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+        return;
+    }else{
+        interrupt(0x21, 0, "found \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+    }
+
+    getEntrySectors(entrySectors, dirSector, targetIndex);
+    
+    dirSector[targetIndex * fileEntrySize] = 0x00;
+    interrupt(0x21, 0, "cleared filename: \0", 0, 0);
+    interrupt(0x21, 0, fileName, 1, 0);
+
+    /*clearing sectors*/
+    for(j = 0; j < sizeof(entrySectors);j++){
+        if(entrySectors[j] == 0x00){
+            break;
+        }
+        mapSector[entrySectors[j] + 1] = 0x00;
+    }
+    interrupt(0x21, 0, "cleared sectors: \0", 0, 0);
+    interrupt(0x21, 0, fileName, 1, 0);
+
+
+    interrupt(0x21, 6, mapSector, 1, 0);
+    interrupt(0x21, 6, dirSector, 2, 0);
+
+    /* 
+        for(i = 0; i < totalFileEntries; i++){
         getEntryName(entryName, dirSector, i);
 
         interrupt(0x21, 0, entryName, 1, 0);
@@ -218,11 +248,6 @@ void deleteFile(char* fileName){
 
             interrupt(0x21, 0, "found \0", 0, 0);
             interrupt(0x21, 0, fileName, 1, 0);
-
-            /*
-            setting first byte of filename to 0x00
-            int startFileName = i * fileEntrySize;
-            */
             
             dirSector[i * fileEntrySize] = 0x00;
 
@@ -231,7 +256,6 @@ void deleteFile(char* fileName){
 
             getEntrySectors(entrySectors, dirSector, i);
             
-            /*clearing sectors*/
             for(j = 0; j < sizeof(entrySectors);j++){
                 if(entrySectors[j] == 0x00){
                     break;
@@ -251,9 +275,9 @@ void deleteFile(char* fileName){
         interrupt(0x21, 0, "could not find \0", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
     }
-    
-    interrupt(0x21, 6, mapSector, 1, 0);
-    interrupt(0x21, 6, dirSector, 2, 0);
+    */
+
+
 }
 
 void loadFile(char* buffer, int* entrySectors){
@@ -267,7 +291,7 @@ void loadFile(char* buffer, int* entrySectors){
 
 
 
-void getEntryNames(char** entryNames, char* dirSector){
+void getEntryNames(char entryNames[][7], char* dirSector){
     int totalFileEntries = 16;
     
     int i;
@@ -305,22 +329,42 @@ void getEntrySectors(int* entrySectors, char* dirSector, int entryIndex){
     }
 }
 
-int getStringIndex(char** strings, int length, char* target){
+int getEntryIndex(char entryNames[][7], char* target){
+    int totalFileEntries = 16;
     int i = 0;
-    for(i = 0; i < length; i++){
-        interrupt(0x21, 0, strings[i], 0, 0);
+
+    for(i = 0; i < totalFileEntries; i++){
+        /* 
+        interrupt(0x21, 0, entryNames[i], 0, 0);
         interrupt(0x21, 0, " \0", 0, 0);
         interrupt(0x21, 0, target, 0, 0);
         interrupt(0x21, 0, " \0", 0, 0);
+        
+        interrupt(0x21, 0, "1\0", 1, 0);
+        interrupt(0x21, 0, "0\0", 1, 0);
+        */
 
-        if(stringEquals(target, strings[i]) == 1){
-            interrupt(0x21, 0, "1\0", 1, 0);
+        if(stringEquals(target, entryNames[i]) == 1){
             return i;
-        }else{
-            interrupt(0x21, 0, "0\0", 1, 0);
         }
     }
     return -1;
+}
+
+void insertEntry(char* dirSector, char* fileName, int index){
+    int fileEntrySize = 32;
+    int fileNameSize = 6;
+    int i;
+
+    for(i = 0; i < fileNameSize; i++){
+        if(i <= sizeof(fileName)){
+            dirSector[index * fileEntrySize + i] = fileName[i];
+        }else{
+            dirSector[index * fileEntrySize + i] = 0x00;
+        }
+        
+    }
+    dirSector[index * fileEntrySize + fileNameSize] = 0x00;
 }
 
 int stringEquals(char* str1, char* str2){
