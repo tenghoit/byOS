@@ -182,6 +182,7 @@ void writeFile(char* fileName, char* buffer, int numberOfSectors){
     char mapSector[512];
     char entryNames[16][7];
     int targetIndex;
+    int i;
 
     readSector(mapSector, 1);
     readSector(dirSector, 2);  
@@ -190,6 +191,10 @@ void writeFile(char* fileName, char* buffer, int numberOfSectors){
     targetIndex = getEntryIndex(entryNames, "\0");
 
     insertEntry(dirSector, fileName, targetIndex);
+
+    for(i = 0; i < numberOfSectors; i++){
+        
+    }
 }
 
 void deleteFile(char* fileName){
