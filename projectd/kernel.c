@@ -9,12 +9,15 @@ void writeFile(char*, char*, int);
 void deleteFile(char*);
 void loadFile(char*, int*);
 
-void getEntryNames(char[][7], char*);
+void printAllEntries(void);
 void getEntryName(char*, char*, int);
 void getEntrySectors(int*, char*, int);
-
-int getEntryIndex(char[][7], char*);
+int getEntryIndex(char*, char*);
 void insertEntry(char*, char*, int);
+void removeEntry(char*, int);
+void clearFileSectors(char*, int);
+void clearMapSectors(char*, int*);
+
 int stringEquals(char*, char*);
 int getStringLength(char*);
 int mod(int, int);
@@ -45,6 +48,7 @@ void executeProgram(char* name, int segment){
 
     interrupt(0x21, 0, "executing \0", 0, 0);
     interrupt(0x21, 0, name, 1, 0);
+
     launchProgram(segment);
 }
 
@@ -63,6 +67,9 @@ void printString(char* str, int newLine){
     if(newLine == 1){
         interrupt(0x10,0xe*256+0xa, 0, 0, 0);
         interrupt(0x10,0xe*256+0xd, 0, 0, 0);
+    }else if(newLine == 2){
+        // We assume the string already had 0x0A, so just move Left
+        interrupt(0x10, 0xe * 256 + 0xd, 0, 0, 0); 
     }
 }
 
@@ -123,166 +130,91 @@ void readFile(char* fileName, char* buffer){
     char dirSector[512];
     int entrySectors[26];
     int targetIndex;
-    char entryNames[16][7];
 
     readSector(dirSector, 2);
 
-    interrupt(0x21, 0, "Files: \0", 1, 0);
-
-    getEntryNames(entryNames, dirSector);
-
-    targetIndex = getEntryIndex(entryNames, fileName);
-    
+    targetIndex = getEntryIndex(dirSector, fileName);
     if(targetIndex == -1){
         interrupt(0x21, 0, "could not find \0", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
         return;
-    }else{
-        interrupt(0x21, 0, "found \0", 0, 0);
-        interrupt(0x21, 0, fileName, 1, 0);
     }
-
-    getEntrySectors(entrySectors, dirSector, targetIndex);
-    loadFile(buffer, entrySectors);
-
     /*
-        for(i = 0; i < totalFileEntries; i++){
-        getEntryName(entryName, dirSector, i);
-
-        interrupt(0x21, 0, entryName, 1, 0);
-
-        if(stringEquals(fileName, entryName) == 1){
-            interrupt(0x21, 0, "found \0", 0, 0);
-            interrupt(0x21, 0, fileName, 1, 0);
-
-            getEntrySectors(entrySectors, dirSector, i);
-            loadFile(buffer, entrySectors);
-
-            found = 1;
-            break;
-        }
-    }
-
-    if(found == 0){
-        interrupt(0x21, 0, "could not find \0", 0, 0);
-        interrupt(0x21, 0, fileName, 1, 0);
-    }
-    
+    interrupt(0x21, 0, "found \0", 0, 0);
+    interrupt(0x21, 0, fileName, 1, 0);
     */
 
 
-    
-
-    
-    
+    getEntrySectors(entrySectors, dirSector, targetIndex);
+    loadFile(buffer, entrySectors);
 }
 
 void writeFile(char* fileName, char* buffer, int numberOfSectors){
+    int fileEntrySize = 32;
+    int fileNameSize = 6;
+    int fileSectors = 26;
+
     char dirSector[512];
     char mapSector[512];
     char entryNames[16][7];
     int targetIndex;
     int i;
+    int freeSector;
 
     readSector(mapSector, 1);
     readSector(dirSector, 2);  
 
-    getEntryNames(entryNames, dirSector);
-    targetIndex = getEntryIndex(entryNames, "\0");
+    targetIndex = getEntryIndex(dirSector, "\0");
 
     insertEntry(dirSector, fileName, targetIndex);
+    clearFileSectors(dirSector, targetIndex);
 
     for(i = 0; i < numberOfSectors; i++){
-        
+
+        freeSector = getFreeSector(mapSector);
+        if(freeSector == -1){
+            interrupt(0x21, 0, "no free sectors\0", 1, 0);
+            deleteFile(fileName);
+            return;
+        }
+
+        mapSector[freeSector] = 0xFF;
+        dirSector[targetIndex * fileEntrySize + fileNameSize + i] = freeSector;
+        writeSector(buffer + (i * 512), freeSector);
     }
+
+    interrupt(0x21, 6, mapSector, 1, 0);
+    interrupt(0x21, 6, dirSector, 2, 0);
 }
 
 void deleteFile(char* fileName){
     char dirSector[512];
     char mapSector[512];
-
-    int j;
-    int fileEntrySize = 32;
     int entrySectors[26];
-    char entryNames[16][7];
     int targetIndex;
 
     readSector(mapSector, 1);
     readSector(dirSector, 2);
 
-    getEntryNames(entryNames, dirSector);
-
-    targetIndex = getEntryIndex(entryNames, fileName);
-    
+    targetIndex = getEntryIndex(dirSector, fileName);
     if(targetIndex == -1){
         interrupt(0x21, 0, "could not find \0", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
         return;
-    }else{
-        interrupt(0x21, 0, "found \0", 0, 0);
-        interrupt(0x21, 0, fileName, 1, 0);
     }
+    /*
+    interrupt(0x21, 0, "found \0", 0, 0);
+    interrupt(0x21, 0, fileName, 1, 0);
+    */
 
     getEntrySectors(entrySectors, dirSector, targetIndex);
-    
-    dirSector[targetIndex * fileEntrySize] = 0x00;
-    interrupt(0x21, 0, "cleared filename: \0", 0, 0);
-    interrupt(0x21, 0, fileName, 1, 0);
 
-    /*clearing sectors*/
-    for(j = 0; j < sizeof(entrySectors);j++){
-        if(entrySectors[j] == 0x00){
-            break;
-        }
-        mapSector[entrySectors[j] + 1] = 0x00;
-    }
-    interrupt(0x21, 0, "cleared sectors: \0", 0, 0);
-    interrupt(0x21, 0, fileName, 1, 0);
-
+    removeEntry(dirSector, targetIndex);
+    clearFileSectors(dirSector, targetIndex);
+    clearMapSectors(mapSector, entrySectors);
 
     interrupt(0x21, 6, mapSector, 1, 0);
     interrupt(0x21, 6, dirSector, 2, 0);
-
-    /* 
-        for(i = 0; i < totalFileEntries; i++){
-        getEntryName(entryName, dirSector, i);
-
-        interrupt(0x21, 0, entryName, 1, 0);
-
-        if(stringEquals(fileName, entryName) == 1){
-
-            interrupt(0x21, 0, "found \0", 0, 0);
-            interrupt(0x21, 0, fileName, 1, 0);
-            
-            dirSector[i * fileEntrySize] = 0x00;
-
-            interrupt(0x21, 0, "cleared filename: \0", 0, 0);
-            interrupt(0x21, 0, fileName, 1, 0);
-
-            getEntrySectors(entrySectors, dirSector, i);
-            
-            for(j = 0; j < sizeof(entrySectors);j++){
-                if(entrySectors[j] == 0x00){
-                    break;
-                }
-                mapSector[entrySectors[j] + 1] = 0x00;
-            }
-
-            interrupt(0x21, 0, "cleared sectors: \0", 0, 0);
-            interrupt(0x21, 0, fileName, 1, 0);
-            
-            found = 1;
-            break;
-        }
-    }
-
-    if(found == 0){
-        interrupt(0x21, 0, "could not find \0", 0, 0);
-        interrupt(0x21, 0, fileName, 1, 0);
-    }
-    */
-
-
 }
 
 void loadFile(char* buffer, int* entrySectors){
@@ -294,15 +226,19 @@ void loadFile(char* buffer, int* entrySectors){
     interrupt(0x21, 0, "loaded file\0", 1, 0);
 }
 
-
-
-void getEntryNames(char entryNames[][7], char* dirSector){
+void printAllEntries(){
+    char dirSector[512];
     int totalFileEntries = 16;
-    
     int i;
+    char entryName[7];
+    
+    readSector(dirSector, 2);
+
     for(i = 0; i < totalFileEntries; i++){
-        getEntryName(entryNames[i], dirSector, i);
-        interrupt(0x21, 0, entryNames[i], 1, 0);
+        getEntryName(entryName, dirSector, i);
+        if(entryName[0] != 0x00){
+            interrupt(0x21, 0, entryName, 1, 0);
+        }
     }
 }
 
@@ -334,22 +270,16 @@ void getEntrySectors(int* entrySectors, char* dirSector, int entryIndex){
     }
 }
 
-int getEntryIndex(char entryNames[][7], char* target){
+int getEntryIndex(char* dirSector, char* target){
     int totalFileEntries = 16;
-    int i = 0;
+    int fileEntrySize = 32;
+    int fileNameSize = 6;
+    int i;
+    char entryName[7];
 
     for(i = 0; i < totalFileEntries; i++){
-        /* 
-        interrupt(0x21, 0, entryNames[i], 0, 0);
-        interrupt(0x21, 0, " \0", 0, 0);
-        interrupt(0x21, 0, target, 0, 0);
-        interrupt(0x21, 0, " \0", 0, 0);
-        
-        interrupt(0x21, 0, "1\0", 1, 0);
-        interrupt(0x21, 0, "0\0", 1, 0);
-        */
-
-        if(stringEquals(target, entryNames[i]) == 1){
+        getEntryName(entryName, dirSector, i);
+        if(stringEquals(target, entryName) == 1){
             return i;
         }
     }
@@ -360,16 +290,59 @@ void insertEntry(char* dirSector, char* fileName, int index){
     int fileEntrySize = 32;
     int fileNameSize = 6;
     int i;
+    int offset = index * fileEntrySize;
+    int nameFinished = 0;
 
     for(i = 0; i < fileNameSize; i++){
-        if(i <= sizeof(fileName)){
-            dirSector[index * fileEntrySize + i] = fileName[i];
-        }else{
-            dirSector[index * fileEntrySize + i] = 0x00;
+        if(fileName[i] == 0x0 || nameFinished == 1){
+            dirSector[offset + i] = 0x00;
+            nameFinished = 1;
+        } else {
+            dirSector[offset + i] = fileName[i];
         }
-        
     }
-    dirSector[index * fileEntrySize + fileNameSize] = 0x00;
+    // Note: Don't set dirSector[offset + 6] to 0x00 here manually; 
+    // that's where your first sector number belongs!
+}
+
+void removeEntry(char* dirSector, int index){
+    int fileEntrySize = 32;
+
+    dirSector[index * fileEntrySize] = 0x00;
+    interrupt(0x21, 0, "cleared entry\0", 1, 0);
+}
+
+void clearFileSectors(char* dirSector, int index){
+    int fileEntrySize = 32;
+    int fileNameSize = 6;
+    int fileSectors = 26;
+
+    int i;
+    for(i = 0; i < fileSectors; i++){
+        dirSector[index * fileEntrySize + fileNameSize + i] = 0x00;
+    }
+}
+
+void clearMapSectors(char* mapSector, int* entrySectors){
+    int fileSectors = 26;
+    int i;
+    for(i = 0; i < fileSectors; i++){
+        if(entrySectors[i] == 0x00){
+            break;
+        }
+        mapSector[entrySectors[i] + 1] = 0x00;
+    }
+    interrupt(0x21, 0, "cleared sectors\0", 1, 0);
+}
+
+int getFreeSector(char* mapSector){
+    int i;
+    for(i = 0; i < 512; i++){
+        if(mapSector[i] == 0x00){
+            return i;
+        }
+    }
+    return -1;
 }
 
 int stringEquals(char* str1, char* str2){
@@ -431,6 +404,8 @@ void handleInterrupt21(int ax, int bx, int cx, int dx){
         deleteFile(bx);
     }else if(ax == 8){
         writeFile(bx, cx, dx);
+    }else if(ax == 9){
+        printAllEntries();
     }else{
         printString("Invalid interrupt!\0", 1);
     }
