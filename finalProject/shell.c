@@ -1,6 +1,7 @@
-void showHistory(char*[]);
-void addHistory(char*[], char*);
-void clearHistory(char*[]);
+void showHistory(char[][]);
+void addHistory(char[][], char*);
+void removeHistory(char[][], int);
+void clearHistory(char[][]);
 void createFile(char*, char*);
 void executeCommand(char*, char*);
 void parseCommand(char*, char*, char*, char*);
@@ -12,11 +13,11 @@ int getStringLength(char*);
 int div(int, int);
 
 void main(){
-    
+    ][
     char line[80];
     char buffer[13312];
     char operation[32], arg1[32], arg2[32];
-    char* history[80];
+    char history[10][80];
 
     clearHistory(history);
 
@@ -33,7 +34,7 @@ void main(){
         interrupt(0X21, 1, line, 0, 0);
 
         parseCommand(line, operation, arg1, arg2);
-
+][
         if(stringEquals(operation, "cat")){
 
             interrupt(0x21, 3, arg1, buffer, 0);
@@ -77,7 +78,7 @@ void main(){
         }else if (stringEquals(operation, "/help") == 1){
 
             getHelp();
-
+][
         }else{
 
             interrupt(0x21, 0, "Invalid Command (/help for more info)\0", 1, 0);
@@ -93,7 +94,7 @@ void main(){
 }
 
 
-void showHistory(char* history[80]){
+void showHistory(char history[10][80]){
     int i;
     char temp[2];
     temp[1] = '\0';
@@ -110,32 +111,48 @@ void showHistory(char* history[80]){
     }
 }
 
-void addHistory(char* history[80], char* line){
+void addHistory(char history[10][80], char* line){
     int i;
     int j;
-    char* temp;
 
+    if(history[9][0] != 0x0){
+        removeHistory(history, 0);
+    }
 
     for(i = 0; i < 10; i++){
-        if(getStringLength(history[i]) == 0){
-
+        if(history[i][0] == 0x0){
 
             for(j = 0; j < getStringLength(line); j++){
-                temp[j] = line[j];
+                history[i][j] = line[j];
             }
-
-            history[i] = temp;
 
             return;
         }
     }
 }
 
+void removeHistory(char history[10][80], int index){
+    int i;
+    int j;
 
-void clearHistory(char* history[80]){
+    for(i = index; i < 10; i++){
+
+        if(i + 1 >= 10){
+            history[i][0] = 0x0;
+            break;
+        }
+
+        for(j = 0; j < 80; j++){
+            history[i][j] = history[i + 1][j];
+        }
+    }
+}
+
+
+void clearHistory(char history[10][80]){
     int i;
     for(i = 0; i < 10; i++){
-        history[i] = "\0";
+        history[i][0] = 0x0;
     }
 }
 
