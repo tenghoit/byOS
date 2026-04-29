@@ -86,8 +86,10 @@ void readString(char* str){
         if (c == enterKey){
             str[index] = 0xa;
             index++;
+            str[index] = 0xd;
+            index++;
             str[index] = 0x0;
-
+            
             interrupt(0x21, 0, "\0", 1, 0);
 
             break;
@@ -241,7 +243,11 @@ void loadFile(char* buffer, int* entrySectors){
     for(i = 0; i < fileSectors; i++){
         readSector(buffer + (i * 512), entrySectors[i]);
     }
+    
+    /*
     interrupt(0x21, 0, "loaded file\0", 1, 0);
+    */
+    
 }
 
 void printAllEntries(){

@@ -1,3 +1,6 @@
+void showHistory(char*[]);
+void addHistory(char*[], char*);
+void clearHistory(char*[]);
 void createFile(char*, char*);
 void executeCommand(char*, char*);
 void parseCommand(char*, char*, char*, char*);
@@ -13,46 +16,129 @@ void main(){
     char line[80];
     char buffer[13312];
     char operation[32], arg1[32], arg2[32];
+    char* history[80];
+
+    clearHistory(history);
 
     clearScreen(24);
+
+    interrupt(0x21, 0, "Welcome to my OS!\0", 1, 0);
+    interrupt(0x21, 0, "\0", 1, 0);
+    getHelp();
+    interrupt(0x21, 0, "\0", 1, 0);
 
     while (1){
         
         interrupt(0x21, 0, ">\0", 0, 0);
         interrupt(0X21, 1, line, 0, 0);
 
-        /* 
-        interrupt(0x21, 0, line, 2, 0);
-        */
-
         parseCommand(line, operation, arg1, arg2);
 
         if(stringEquals(operation, "cat")){
+
             interrupt(0x21, 3, arg1, buffer, 0);
             interrupt(0x21, 0, buffer, 0, 0);
-        }else if (stringEquals(operation, "execute") == 1){
-            interrupt(0x21, 4, arg1, 0x2000, 0);
-        }else if (stringEquals(operation, "rm") == 1){
-            interrupt(0x21, 7, arg1, 0, 0);
-        }else if (stringEquals(operation, "cp") == 1){
+
+        }else if (stringEquals(operation, "touch") == 1){
+
+            createFile(buffer, arg1);
+
+        }else if (stringEquals(operation, "mv") == 1){
+
             interrupt(0x21, 3, arg1, buffer, 0);
             interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
-        }else if (stringEquals(operation, "touch") == 1){
-            createFile(buffer, arg1);
+            interrupt(0x21, 7, arg1, 0, 0);
+
+        }else if (stringEquals(operation, "rm") == 1){
+
+            interrupt(0x21, 7, arg1, 0, 0);
+
+        }else if (stringEquals(operation, "cp") == 1){
+
+            interrupt(0x21, 3, arg1, buffer, 0);
+            interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
+
+        }else if (stringEquals(operation, "execute") == 1){
+
+            interrupt(0x21, 4, arg1, 0x2000, 0);
+
         }else if (stringEquals(operation, "ls") == 1){
+
             interrupt(0x21, 9, 0, 0, 0);
+
         }else if (stringEquals(operation, "clear") == 1){
+
             clearScreen(24);
+
+        }else if (stringEquals(operation, "history") == 1){
+
+            showHistory(history);
+
         }else if (stringEquals(operation, "/help") == 1){
+
             getHelp();
+
         }else{
+
             interrupt(0x21, 0, "Invalid Command (/help for more info)\0", 1, 0);
-        }/* code */
+
+        }
+
+        addHistory(history, line);
+
     }
     
 
 
 }
+
+
+void showHistory(char* history[80]){
+    int i;
+    char temp[2];
+    temp[1] = '\0';
+
+    for(i = 0; i < 10; i++){
+        if(getStringLength(history[i]) == 0){
+            break;
+        }
+        
+        temp[0] = (char) i + 0x30;
+        interrupt(0x21, 0, temp, 0, 0);
+        interrupt(0x21, 0, ": \0", 0, 0);
+        interrupt(0x21, 0, history[i], 1, 0);
+    }
+}
+
+void addHistory(char* history[80], char* line){
+    int i;
+    int j;
+    char* temp;
+
+
+    for(i = 0; i < 10; i++){
+        if(getStringLength(history[i]) == 0){
+
+
+            for(j = 0; j < getStringLength(line); j++){
+                temp[j] = line[j];
+            }
+
+            history[i] = temp;
+
+            return;
+        }
+    }
+}
+
+
+void clearHistory(char* history[80]){
+    int i;
+    for(i = 0; i < 10; i++){
+        history[i] = "\0";
+    }
+}
+
 
 void createFile(char* buffer, char* filename) {
     char line[80];
@@ -89,7 +175,6 @@ void createFile(char* buffer, char* filename) {
     // Calculate sectors: (Length / 512) + 1
     interrupt(0x21, 8, filename, buffer, div(getStringLength(buffer), 512) + 1);
 }
-
 
 void parseCommand(char* cmd, char* operation, char* arg1, char* arg2) {
     int pos = 0;
@@ -138,11 +223,14 @@ void getHelp(){
     interrupt(0x21, 0, "Available Commands: \0", 1, 0);
     interrupt(0x21, 0, "cat <file> | Show content of a file.\0", 1, 0);
     interrupt(0x21, 0, "touch <file> | Create a new file. \0", 1, 0);
+    interrupt(0x21, 0, "mv <file1> <file2> | Move file1 to file2.\0", 1, 0);
     interrupt(0x21, 0, "rm <file> | Remove a file.\0", 1, 0);
     interrupt(0x21, 0, "cp <file1> <file2> | Copy contents of file1 to a new file2.\0", 1, 0);
     interrupt(0x21, 0, "execute <file> | Execute a file.\0", 1, 0);
     interrupt(0x21, 0, "ls | Show all files.\0", 1, 0);
     interrupt(0x21, 0, "clear | Clears the screen.\0", 1, 0);
+    interrupt(0x21, 0, "history | Show command history.\0", 1, 0);
+    interrupt(0x21, 0, "/help | Show all available commands.\0", 1, 0);
 }
 
 int stringEquals(char* str1, char* str2){
