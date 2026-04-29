@@ -3,7 +3,7 @@ void addHistory(char[][], char*);
 void removeHistory(char[][], int);
 void clearHistory(char[][]);
 void createFile(char*, char*);
-void executeCommand(char*, char*);
+void executeCommand(char*, char[][], char*, char*, char*);
 void parseCommand(char*, char*, char*, char*);
 void clearScreen(int);
 void getHelp(void);
@@ -13,7 +13,7 @@ int getStringLength(char*);
 int div(int, int);
 
 void main(){
-    ][
+    
     char line[80];
     char buffer[13312];
     char operation[32], arg1[32], arg2[32];
@@ -34,62 +34,12 @@ void main(){
         interrupt(0X21, 1, line, 0, 0);
 
         parseCommand(line, operation, arg1, arg2);
-][
-        if(stringEquals(operation, "cat")){
-
-            interrupt(0x21, 3, arg1, buffer, 0);
-            interrupt(0x21, 0, buffer, 0, 0);
-
-        }else if (stringEquals(operation, "touch") == 1){
-
-            createFile(buffer, arg1);
-
-        }else if (stringEquals(operation, "mv") == 1){
-
-            interrupt(0x21, 3, arg1, buffer, 0);
-            interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
-            interrupt(0x21, 7, arg1, 0, 0);
-
-        }else if (stringEquals(operation, "rm") == 1){
-
-            interrupt(0x21, 7, arg1, 0, 0);
-
-        }else if (stringEquals(operation, "cp") == 1){
-
-            interrupt(0x21, 3, arg1, buffer, 0);
-            interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
-
-        }else if (stringEquals(operation, "execute") == 1){
-
-            interrupt(0x21, 4, arg1, 0x2000, 0);
-
-        }else if (stringEquals(operation, "ls") == 1){
-
-            interrupt(0x21, 9, 0, 0, 0);
-
-        }else if (stringEquals(operation, "clear") == 1){
-
-            clearScreen(24);
-
-        }else if (stringEquals(operation, "history") == 1){
-
-            showHistory(history);
-
-        }else if (stringEquals(operation, "/help") == 1){
-
-            getHelp();
-][
-        }else{
-
-            interrupt(0x21, 0, "Invalid Command (/help for more info)\0", 1, 0);
-
-        }
 
         addHistory(history, line);
 
-    }
-    
+        executeCommand(buffer, history, operation, arg1, arg2);
 
+    }
 
 }
 
@@ -100,7 +50,7 @@ void showHistory(char history[10][80]){
     temp[1] = '\0';
 
     for(i = 0; i < 10; i++){
-        if(getStringLength(history[i]) == 0){
+        if(history[i][0] == 0x0){
             break;
         }
         
@@ -193,6 +143,65 @@ void createFile(char* buffer, char* filename) {
     interrupt(0x21, 8, filename, buffer, div(getStringLength(buffer), 512) + 1);
 }
 
+void executeCommand(char* buffer, char history[][], char* operation, char* arg1, char* arg2){
+
+    if(stringEquals(operation, "cat")){
+
+        interrupt(0x21, 3, arg1, buffer, 0);
+        interrupt(0x21, 0, buffer, 0, 0);
+
+    }else if (stringEquals(operation, "touch") == 1){
+
+        createFile(buffer, arg1);
+
+    }else if (stringEquals(operation, "mv") == 1){
+
+        interrupt(0x21, 3, arg1, buffer, 0);
+        interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
+        interrupt(0x21, 7, arg1, 0, 0);
+
+    }else if (stringEquals(operation, "rm") == 1){
+
+        interrupt(0x21, 7, arg1, 0, 0);
+
+    }else if (stringEquals(operation, "cp") == 1){
+
+        interrupt(0x21, 3, arg1, buffer, 0);
+        interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
+
+    }else if (stringEquals(operation, "execute") == 1){
+
+        interrupt(0x21, 4, arg1, 0x2000, 0);
+
+    }else if (stringEquals(operation, "ls") == 1){
+
+        interrupt(0x21, 9, 0, 0, 0);
+
+    }else if (stringEquals(operation, "clear") == 1){
+
+        clearScreen(24);
+
+    }else if (stringEquals(operation, "history") == 1){
+
+        showHistory(history);
+
+    }else if (stringEquals(operation, "!") == 1){
+
+        parseCommand(history[(int) arg1[0] - 0x30], operation, arg1, arg2);
+        executeCommand(buffer, history, operation, arg1, arg2);
+
+    }else if (stringEquals(operation, "/help") == 1){
+
+        getHelp();
+
+    }else{
+
+        interrupt(0x21, 0, "Invalid Command (/help for more info)\0", 1, 0);
+
+    }
+        
+}
+
 void parseCommand(char* cmd, char* operation, char* arg1, char* arg2) {
     int pos = 0;
 
@@ -237,7 +246,7 @@ void clearScreen(int lines){
 }
 
 void getHelp(){
-    interrupt(0x21, 0, "Available Commands: \0", 1, 0);
+    interrupt(0x21, 0, "Available Commands (/help): \0", 1, 0);
     interrupt(0x21, 0, "cat <file> | Show content of a file.\0", 1, 0);
     interrupt(0x21, 0, "touch <file> | Create a new file. \0", 1, 0);
     interrupt(0x21, 0, "mv <file1> <file2> | Move file1 to file2.\0", 1, 0);
