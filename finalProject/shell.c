@@ -1,11 +1,12 @@
-void showHistory(char[][]);
-void addHistory(char[][], char*);
-void removeHistory(char[][], int);
-void clearHistory(char[][]);
+void showHistory(char[10][80]);
+void addHistory(char[10][80], char*);
+void removeHistory(char[10][80], int);
+void clearHistory(char[10][80]);
 void createFile(char*, char*);
-void executeCommand(char*, char[][], char*, char*, char*);
+void executeCommand(char*, char[10][80], char*, char*, char*);
 void parseCommand(char*, char*, char*, char*);
 void clearScreen(int);
+int checkFileStatus(char*, int);
 void getHelp(void);
 int getStringLength(char*);
 int stringEquals(char*, char*);
@@ -57,7 +58,7 @@ void showHistory(char history[10][80]){
         temp[0] = (char) i + 0x30;
         interrupt(0x21, 0, temp, 0, 0);
         interrupt(0x21, 0, ": \0", 0, 0);
-        interrupt(0x21, 0, history[i], 1, 0);
+        interrupt(0x21, 0, history[i], 0, 0);
     }
 }
 
@@ -143,33 +144,59 @@ void createFile(char* buffer, char* filename) {
     interrupt(0x21, 8, filename, buffer, div(getStringLength(buffer), 512) + 1);
 }
 
-void executeCommand(char* buffer, char history[][], char* operation, char* arg1, char* arg2){
+void executeCommand(char* buffer, char history[10][80], char* operation, char* arg1, char* arg2){
+    int index;
+    int fileExists;
+
 
     if(stringEquals(operation, "cat")){
+
+        if(checkFileStatus(arg1, 1) == 0){
+            return;
+        }
 
         interrupt(0x21, 3, arg1, buffer, 0);
         interrupt(0x21, 0, buffer, 0, 0);
 
     }else if (stringEquals(operation, "touch") == 1){
 
+        if(checkFileStatus(arg1, 0) == 0){
+            return;
+        }
+
         createFile(buffer, arg1);
 
     }else if (stringEquals(operation, "mv") == 1){
+
+        if(checkFileStatus(arg1, 1) == 0 || checkFileStatus(arg2, 0) == 0){
+            return;
+        }
 
         interrupt(0x21, 3, arg1, buffer, 0);
         interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
         interrupt(0x21, 7, arg1, 0, 0);
 
     }else if (stringEquals(operation, "rm") == 1){
+        if(checkFileStatus(arg1, 1) == 0){
+            return;
+        }
 
         interrupt(0x21, 7, arg1, 0, 0);
 
     }else if (stringEquals(operation, "cp") == 1){
 
+        if(checkFileStatus(arg1, 1) == 0 || checkFileStatus(arg2, 0) == 0){
+            return;
+        }
+
         interrupt(0x21, 3, arg1, buffer, 0);
         interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
 
     }else if (stringEquals(operation, "execute") == 1){
+
+        if(checkFileStatus(arg1, 1) == 0){
+            return;
+        }
 
         interrupt(0x21, 4, arg1, 0x2000, 0);
 
@@ -187,7 +214,14 @@ void executeCommand(char* buffer, char history[][], char* operation, char* arg1,
 
     }else if (stringEquals(operation, "!") == 1){
 
-        parseCommand(history[(int) arg1[0] - 0x30], operation, arg1, arg2);
+        index = (int)arg1[0] - '0';
+
+        if(index < 0 || index > 9 || history[index][0] == 0x0){
+            interrupt(0x21, 0, "Invalid history index\0", 1, 0);
+            return;
+        }
+
+        parseCommand(history[index], operation, arg1, arg2);
         executeCommand(buffer, history, operation, arg1, arg2);
 
     }else if (stringEquals(operation, "/help") == 1){
@@ -245,6 +279,26 @@ void clearScreen(int lines){
     }
 }
 
+int checkFileStatus(char* fileName, int status){
+    int fileExists;
+    interrupt(0x21, 10, fileName, &fileExists, 0);
+
+    if(fileExists == 1 && status == 1){
+        return 1; 
+    }else if(fileExists == 0 && status == 0){
+        return 1;
+    }else if (fileExists == 1 && status == 0){
+        interrupt(0x21, 0, "File already exists: \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+        return 0;
+    }else if (fileExists == 0 && status == 1){
+        interrupt(0x21, 0, "File not found: \0", 0, 0);
+        interrupt(0x21, 0, fileName, 1, 0);
+        return 0;
+    }
+    return 0;
+}
+
 void getHelp(){
     interrupt(0x21, 0, "Available Commands (/help): \0", 1, 0);
     interrupt(0x21, 0, "cat <file> | Show content of a file.\0", 1, 0);
@@ -256,6 +310,7 @@ void getHelp(){
     interrupt(0x21, 0, "ls | Show all files.\0", 1, 0);
     interrupt(0x21, 0, "clear | Clears the screen.\0", 1, 0);
     interrupt(0x21, 0, "history | Show command history.\0", 1, 0);
+    interrupt(0x21, 0, "! <index> | Re-execute a command from history.\0", 1, 0);
     interrupt(0x21, 0, "/help | Show all available commands.\0", 1, 0);
 }
 

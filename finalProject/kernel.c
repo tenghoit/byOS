@@ -13,6 +13,7 @@ void printAllEntries(void);
 void getEntryName(char*, char*, int);
 void getEntrySectors(int*, char*, int);
 int getEntryIndex(char*, char*);
+int checkEntryExists(char*);
 void insertEntry(char*, char*, int);
 void removeEntry(char*, int);
 void clearFileSectors(char*, int);
@@ -310,6 +311,20 @@ int getEntryIndex(char* dirSector, char* target){
     return -1;
 }
 
+int checkEntryExists(char* target){
+    char dirSector[512];
+    int result;
+    readSector(dirSector, 2);
+
+    result = getEntryIndex(dirSector, target);
+
+    if(result == -1){
+        return 0;
+    }else{
+        return 1;
+    }
+}
+
 void insertEntry(char* dirSector, char* fileName, int index){
     int fileEntrySize = 32;
     int fileNameSize = 6;
@@ -430,6 +445,9 @@ void handleInterrupt21(int ax, int bx, int cx, int dx){
         writeFile(bx, cx, dx);
     }else if(ax == 9){
         printAllEntries();
+    }else if(ax == 10){
+        int* resultPtr = (int*)cx; 
+        *resultPtr = checkEntryExists(bx);
     }else{
         printString("Invalid interrupt!\0", 1);
     }
