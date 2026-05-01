@@ -9,6 +9,7 @@ void writeFile(char*, char*, int);
 void deleteFile(char*);
 void loadFile(char*, int*);
 
+void getAllEntries(char*);
 void printAllEntries(void);
 void getEntryName(char*, char*, int);
 void getEntrySectors(int*, char*, int);
@@ -30,7 +31,7 @@ void main(){
 
     makeInterrupt21();
     
-    interrupt(0x21, 4, "shell\0", 0x2000, 0);
+    interrupt(0x21, 5, 0, 0, 0);
 }
 
 void terminate(){
@@ -251,6 +252,31 @@ void loadFile(char* buffer, int* entrySectors){
     
 }
 
+void getAllEntries(char* entryNames){
+    char dirSector[512];
+    int totalFileEntries = 16;
+    int i, j;
+    int count = 0;
+    char entryName[7];
+    
+    readSector(dirSector, 2);
+
+    for(i = 0; i < totalFileEntries; i++){
+        getEntryName(entryName, dirSector, i);
+
+        if(entryName[0] == 0x00){
+            continue;
+        }
+
+        for(j = 0; j < 7; j++){
+            entryNames[count* 7 + j] = entryName[j];
+        }
+
+        count++;
+    }
+}
+
+
 void printAllEntries(){
     char dirSector[512];
     int totalFileEntries = 16;
@@ -444,7 +470,7 @@ void handleInterrupt21(int ax, int bx, int cx, int dx){
     }else if(ax == 8){
         writeFile(bx, cx, dx);
     }else if(ax == 9){
-        printAllEntries();
+        getAllEntries(bx);
     }else if(ax == 10){
         int* resultPtr = (int*)cx; 
         *resultPtr = checkEntryExists(bx);
