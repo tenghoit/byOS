@@ -1,115 +1,5 @@
-void showHistory(char[10][80]);
-void addHistory(char[10][80], char*);
-void removeHistory(char[10][80], int);
-void clearHistory(char[10][80]);
-void createFile(char*, char*);
-void executeCommand(char*, char[10][80], char*, char*, char*);
-void parseCommand(char*, char*, char*, char*);
-int getToken(char*, int, char*);
-void clearScreen(int);
-int checkFileStatus(char*, int);
-void printAllEntries(void);
-void getHelp(void);
-int getStringLength(char*);
-int stringEquals(char*, char*);
-int getStringLength(char*);
-int div(int, int);
-
-void main(){
-    
-    char line[80];
-    char buffer[13312];
-    char operation[32], arg1[32], arg2[32];
-    char history[10][80];
-
-    clearHistory(history);
-
-    clearScreen(24);
-
-    interrupt(0x21, 0, "Welcome to my OS!\0", 1, 0);
-    interrupt(0x21, 0, "\0", 1, 0);
-    getHelp();
-    interrupt(0x21, 0, "\0", 1, 0);
-
-    while (1){
-        
-        interrupt(0x21, 0, ">\0", 0, 0);
-        interrupt(0X21, 1, line, 0, 0);
-
-        parseCommand(line, operation, arg1, arg2);
-
-        addHistory(history, line);
-
-        executeCommand(buffer, history, operation, arg1, arg2);
-
-    }
-
-}
-
-
-void showHistory(char history[10][80]){
-    int i;
-    char temp[2];
-    temp[1] = '\0';
-
-    for(i = 0; i < 10; i++){
-        if(history[i][0] == 0x0){
-            break;
-        }
-        
-        temp[0] = (char) i + 0x30;
-        interrupt(0x21, 0, temp, 0, 0);
-        interrupt(0x21, 0, ": \0", 0, 0);
-        interrupt(0x21, 0, history[i], 0, 0);
-    }
-}
-
-void addHistory(char history[10][80], char* line){
-    int i;
-    int j;
-
-    if(history[9][0] != 0x0){
-        removeHistory(history, 0);
-    }
-
-    for(i = 0; i < 10; i++){
-        if(history[i][0] == 0x0){
-
-            for(j = 0; j < getStringLength(line); j++){
-                history[i][j] = line[j];
-            }
-
-            return;
-        }
-    }
-}
-
-void removeHistory(char history[10][80], int index){
-    int i;
-    int j;
-
-    for(i = index; i < 10; i++){
-
-        if(i + 1 >= 10){
-            history[i][0] = 0x0;
-            break;
-        }
-
-        for(j = 0; j < 80; j++){
-            history[i][j] = history[i + 1][j];
-        }
-    }
-}
-
-
-void clearHistory(char history[10][80]){
-    int i;
-    for(i = 0; i < 10; i++){
-        history[i][0] = 0x0;
-    }
-}
-
-
+#include "shell.h"
+#include "string.h"
 
 void createFile(char* buffer, char* filename) {
     char line[80];
@@ -122,29 +12,21 @@ void createFile(char* buffer, char* filename) {
 
     while(1) {
         interrupt(0x21, 1, line, 0, 0);
-        /* 
-        interrupt(0x21, 0, line, 2, 0);
-        */
 
-        // In your readString, an empty line is just a Carriage Return (\xa or \xd)
-        // If the first char is a newline, the user is done.
         if(line[0] == 0xa || line[0] == 0x0 || line[0] == 0xd) {
             break;
         }
 
         pos = getStringLength(buffer);
 
-        // Append the new line to our big buffer
         for(i = 0; i < getStringLength(line); i++) {
             buffer[pos + i] = line[i];
         }
         
-        // Ensure the buffer is null-terminated for the next getStringLength call
         buffer[pos + getStringLength(line)] = 0x0;
     }
 
-    // Calculate sectors: (Length / 512) + 1
-    interrupt(0x21, 8, filename, buffer, div(getStringLength(buffer), 512) + 1);
+    interrupt(0x21, 8, filename, buffer);
 }
 
 void executeCommand(char* buffer, char history[10][80], char* operation, char* arg1, char* arg2){
@@ -176,7 +58,7 @@ void executeCommand(char* buffer, char history[10][80], char* operation, char* a
         }
 
         interrupt(0x21, 3, arg1, buffer, 0);
-        interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
+        interrupt(0x21, 8, arg2, buffer);
         interrupt(0x21, 7, arg1, 0, 0);
 
     }else if (stringEquals(operation, "rm") == 1){
@@ -193,7 +75,7 @@ void executeCommand(char* buffer, char history[10][80], char* operation, char* a
         }
 
         interrupt(0x21, 3, arg1, buffer, 0);
-        interrupt(0x21, 8, arg2, buffer, div(getStringLength(buffer), 512) + 1);
+        interrupt(0x21, 8, arg2, buffer);
 
     }else if (stringEquals(operation, "execute") == 1){
 
@@ -262,7 +144,7 @@ int getToken(char* src, int start, char* dest) {
     }
 
     // 2. Copy characters until we hit a delimiter (space, newline, or null)
-    while (src[i] != ' ' && src[i] != '\n' && src[i] != '\r' && src[i] != '\0') {
+    while (src[i] != ' ' && src[i] != '\n' && src[i] != '\r' && src[i] != '\0' && src[i] != 0xa && src[i] != 0xd) {
         dest[j] = src[i];
         i++;
         j++;
@@ -334,36 +216,4 @@ void getHelp(){
     interrupt(0x21, 0, "history | Show command history.\0", 1, 0);
     interrupt(0x21, 0, "! <index> | Re-execute a command from history.\0", 1, 0);
     interrupt(0x21, 0, "/help | Show all available commands.\0", 1, 0);
-}
-
-int stringEquals(char* str1, char* str2){
-    int index = 0;
-
-    if (getStringLength(str1) != getStringLength(str2)){
-        return 0;
-    }
-
-    while(str1[index] != 0x0){
-        if(str1[index] != str2[index]){
-            return 0;
-        }
-        index++;
-    }
-    return 1;
-}
-
-int getStringLength(char* str){
-    int length = 0;
-    while(str[length] != 0x0){
-        length++;
-    }
-    return length;
-}
-
-int div(int a, int b){
-    int quotient = 0;
-    while (quotient * b <= a){
-        quotient++;
-    }
-    return quotient - 1;
 }
