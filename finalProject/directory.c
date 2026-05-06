@@ -19,9 +19,15 @@ void getAllEntries(char* entryNames){
             continue;
         }
 
+        copyString(entryName, &entryNames[count * 7]);
+
+        /*
+        
         for(j = 0; j < 7; j++){
-            entryNames[count* 7 + j] = entryName[j];
+            entryNames[count * 7 + j] = entryName[j];
         }
+
+        */
 
         count++;
     }
@@ -47,15 +53,18 @@ void printAllEntries(){
 void getEntryName(char* entryName, char* dirSector, int entryIndex){
     int fileEntrySize = 32;
     int fileNameSize = 6;
-
-    int start = entryIndex * fileEntrySize;
-    int end = start + fileNameSize;
+    int offset = entryIndex * fileEntrySize;
+    char c;
 
     int i;
-    for(i = start; i < end; i++){
-        entryName[i - start] = dirSector[i];
+    for(i = 0; i < fileNameSize; i++){
+        c = dirSector[offset + i];
+        if(c == 0x0){
+            break;
+        }
+        entryName[i] = c;
     }
-    entryName[fileNameSize] = 0x0;
+    entryName[i] = 0x0;
 }   
 
 void getEntrySectors(int* entrySectors, char* dirSector, int entryIndex){
@@ -81,7 +90,20 @@ int getEntryIndex(char* dirSector, char* target){
 
     for(i = 0; i < totalFileEntries; i++){
         getEntryName(entryName, dirSector, i);
-        if(stringEquals(target, entryName) == 1){
+        if(stringEquals(target, entryName)){
+            return i;
+        }
+    }
+    return -1;
+}
+
+int getFreeEntryIndex(char* dirSector){
+    int totalFileEntries = 16;
+    int fileEntrySize = 32;
+    int i;
+
+    for(i = 0; i < totalFileEntries; i++){
+        if(dirSector[i * fileEntrySize] == 0x0){
             return i;
         }
     }
@@ -104,6 +126,7 @@ int checkEntryExists(char* target){
 
 void insertEntry(char* dirSector, char* fileName, int index){
     int fileEntrySize = 32;
+    int fileSectors = 26;
     int fileNameSize = 6;
     int i;
     int offset = index * fileEntrySize;
@@ -112,16 +135,22 @@ void insertEntry(char* dirSector, char* fileName, int index){
 
     for(i = 0; i < fileNameSize; i++){
         if(fileName[i] == 0x0 || nameFinished == 1){
-            dirSector[offset + i] = 0x00;
+            dirSector[offset + i] = 0x0;
             nameFinished = 1;
         } else {
             dirSector[offset + i] = fileName[i];
         }
     }
 
+    /*
+    
     for(j = offset + fileNameSize; j < offset + fileEntrySize; j++){
         dirSector[j] = 0x00;
     }
+    */
+
+
+    clearString(&dirSector[offset + fileNameSize], fileSectors);
 }
 
 void removeEntry(char* dirSector, char* mapSector, int index){
@@ -132,17 +161,22 @@ void removeEntry(char* dirSector, char* mapSector, int index){
     int end = start + fileSectors;
     int i;
 
+    /*
     dirSector[index * fileEntrySize] = 0x00;
+    */
+    
+    clearString(&dirSector[index * fileEntrySize], 6);
 
     for(i = start; i < end; i++){
         if(dirSector[i] == 0x0){
             break;
         }
+
         mapSector[dirSector[i] + 1] = 0x00;
         dirSector[i] = 0x0;
     }
 
-    interrupt(0x21, 0, "cleared entry\0", 1, 0);
+    interrupt(0x21, 0, "cleared entry", 1, 0);
 }
 
 int getFreeSector(char* mapSector){

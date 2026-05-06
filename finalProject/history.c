@@ -14,7 +14,7 @@ void showHistory(char history[10][80]){
         temp[0] = (char) i + '0';
         interrupt(0x21, 0, temp, 0, 0);
         interrupt(0x21, 0, ": \0", 0, 0);
-        interrupt(0x21, 0, history[i], 0, 0);
+        interrupt(0x21, 0, history[i], 1, 0);
     }
 }
 
@@ -60,7 +60,7 @@ void clearHistory(char history[10][80]){
     int i;
     int j;
     for(i = 0; i < 10; i++){
-        for(i = 0; i < 80; i++){
+        for(j = 0; j < 80; j++){
             history[i][j] = 0x0;    
         }
     }

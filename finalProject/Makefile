@@ -60,7 +60,7 @@ history.o: history.c history.h string.h
 shell.o: shell.c string.h
 	bcc -ansi -c -o shell.o shell.c
 
-cli.o: cli.c shell.h history.h string.h
+cli.o: cli.c shell.h history.h string.h 
 	bcc -ansi -c -o cli.o cli.c
 
 tui.o: tui.c shell.h history.h string.h

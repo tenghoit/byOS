@@ -15,7 +15,7 @@ void readFile(char* fileName, char* buffer){
 
     targetIndex = getEntryIndex(dirSector, fileName);
     if(targetIndex == -1){
-        interrupt(0x21, 0, "File not found: \0", 0, 0);
+        interrupt(0x21, 0, "File not found: ", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
         return;
     }
@@ -44,19 +44,23 @@ void writeFile(char* fileName, char* buffer){
 
     targetIndex = getEntryIndex(dirSector, fileName);
     if(targetIndex != -1){
-        interrupt(0x21, 0, "File already exists: \0", 0, 0);
+        interrupt(0x21, 0, "File already exists: ", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
         return;
     }
 
-    targetIndex = getEntryIndex(dirSector, "\0");
+    targetIndex = getFreeEntryIndex(dirSector);
+    if(targetIndex == -1){
+        interrupt(0x21, 0, "Directory full", 0, 0);
+        return;
+    }
     insertEntry(dirSector, fileName, targetIndex);
 
     for(i = 0; i < numberOfSectors; i++){
 
         freeSector = getFreeSector(mapSector);
         if(freeSector == -1){
-            interrupt(0x21, 0, "no free sectors\0", 1, 0);
+            interrupt(0x21, 0, "no free sectors", 1, 0);
             return;
         }
 
@@ -80,7 +84,7 @@ void deleteFile(char* fileName){
 
     targetIndex = getEntryIndex(dirSector, fileName);
     if(targetIndex == -1){
-        interrupt(0x21, 0, "could not find \0", 0, 0);
+        interrupt(0x21, 0, "could not find ", 0, 0);
         interrupt(0x21, 0, fileName, 1, 0);
         return;
     }
@@ -96,7 +100,7 @@ void loadFile(char* buffer, int* entrySectors){
     int i;
     for(i = 0; i < fileSectors; i++){
         if(entrySectors[i] == 0x0){
-            buffer[i * 512] = '\0';
+            buffer[i * 512] = 0x0;
             break;
         }
 

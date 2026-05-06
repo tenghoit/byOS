@@ -6,9 +6,10 @@ void printAllEntries(void);
 void getEntryName(char*, char*, int);
 void getEntrySectors(int*, char*, int);
 int getEntryIndex(char*, char*);
+int getFreeEntryIndex(char*);
 int checkEntryExists(char*);
 void insertEntry(char*, char*, int);
 void removeEntry(char*, char*, int);
-int getFreeSector(int);
+int getFreeSector(char*);
 
 #endif
