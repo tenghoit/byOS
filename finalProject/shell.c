@@ -6,7 +6,7 @@ void createFile(char* buffer, char* filename) {
     int pos = 0;
     int i;
 
-    interrupt(0x21, 0, "Enter text (empty line to end):", 1, 0);
+    interrupt(0x21, 0, "Enter text (empty line to end):\r\n", 0, 0);
 
     while(1) {
         clearString(line, 80);
@@ -26,13 +26,6 @@ void createFile(char* buffer, char* filename) {
 
     }
 
-    /*
-       pos = getStringLength(buffer);
-    if (pos >= 2) {
-        buffer[pos - 2] = 0x0; 
-    } 
-    */
-
 
     interrupt(0x21, 8, filename, buffer);
 }
@@ -50,7 +43,7 @@ void executeCommand(char* buffer, char history[10][80], char* operation, char* a
 
         clearString(buffer, 13312);
         interrupt(0x21, 3, arg1, buffer, 0);
-        interrupt(0x21, 0, buffer, 1, 0);
+        interrupt(0x21, 0, buffer, 0, 0);
 
     }else if (stringEquals(operation, "touch")){
 
@@ -69,8 +62,11 @@ void executeCommand(char* buffer, char history[10][80], char* operation, char* a
 
         clearString(buffer, 13312);
         interrupt(0x21, 3, arg1, buffer, 0);
+        interrupt(0x21, 0, "read file\r\n", 0, 0);
         interrupt(0x21, 8, arg2, buffer);
+        interrupt(0x21, 0, "write file\r\n", 0, 0);
         interrupt(0x21, 7, arg1, 0, 0);
+        interrupt(0x21, 0, "delete file\r\n", 0, 0);
 
     }else if (stringEquals(operation, "rm")){
         if(checkFileStatus(arg1, 1) == 0){
@@ -114,7 +110,7 @@ void executeCommand(char* buffer, char history[10][80], char* operation, char* a
         index = (int)arg1[0] - '0';
 
         if(index < 0 || index > 9 || history[index][0] == 0x0){
-            interrupt(0x21, 0, "Invalid history index", 1, 0);
+            interrupt(0x21, 0, "Invalid history index\r\n", 0, 0);
             return;
         }
 
@@ -131,7 +127,7 @@ void executeCommand(char* buffer, char history[10][80], char* operation, char* a
 
     }else{
 
-        interrupt(0x21, 0, "Invalid Command (/help for more info)", 1, 0);
+        interrupt(0x21, 0, "Invalid Command (/help for more info)\r\n", 0, 0);
 
     }
         
@@ -242,7 +238,7 @@ void moveCursor(int row, int col){
 }
 
 void errorPause(char* message){
-    interrupt(0x21, 0, "", 1, 0);
+    interrupt(0x21, 0, "\r\n", 0, 0);
     interrupt(0x21, 0, message, 1, 0);
-    interrupt(0x16, 0, 0, 0, 0);
+    interrupt(0x21, 0, "\r\n", 0, 0);
 }

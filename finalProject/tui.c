@@ -4,10 +4,10 @@
 
 void executeCommandTUI(char*, char[][], char*, char*, char*);
 void takeTextInput(char*, char*);
-void manageCursor(int);
 void selectFile(char*);
 void selectCommand(char*);
 int getCommands(char[][32]);
+void selectMenu(char*, char*, int, int, char*);
 
 char buffer[13312];
 
@@ -34,6 +34,9 @@ void main() {
         selectCommand(operation);
 
         executeCommandTUI(buffer, history, operation, arg1, arg2);
+
+        rebuildLine(line, operation, arg1, arg2);
+        addHistory(history, line);
     }
 }
 
@@ -108,128 +111,25 @@ void takeTextInput(char* header, char* arg){
     interrupt(0x21, 1, arg, 0, 0);
 }
 
-
-void manageCursor(int index){
-    char key = interrupt(0x16, 0, 0, 0, 0);
-
-    if(key == 'w'){        
-        index--;
-    }else if (key == 's'){        
-        index++;
-    }
-}
-
 void selectFile(char* fileName) {
     char entryNames[16][7];
     int i;
-    int cursorIndex = 0;
-    int prevIndex = 0;
-    char key;
-    int length;
-    int change = 1;
 
-    /*clear*/
-    for(i = 0; i < 16; i++){
-        clearString(entryNames[i], 7);
-    }
+    clearStringArray(entryNames, 16, 7);
 
-    /*get files*/
     interrupt(0x21, 9, entryNames, 0, 0);
 
-    clearScreen();
-    interrupt(0x21, 0, "Select File: ", 1, 0);
-
-    for(i = 0; i < 16; i++){
-        if(entryNames[i][0] == 0x00){
-            length = i;
-            break;
-        }
-        interrupt(0x21, 0, "   ", 0, 0);
-        interrupt(0x21, 0, entryNames[i], 1, 0);
-    }
-
-
-    while(1){
-
-        if(change){
-            moveCursor(prevIndex + 1, 0);
-            interrupt(0x21, 0, "   ", 0, 0);
-
-            moveCursor(cursorIndex + 1, 0);
-            interrupt(0x21, 0, " > ", 0, 0);
-            
-            prevIndex = cursorIndex;
-            change = 0;
-        }
-
-        key = interrupt(0x16, 0, 0, 0, 0);
-
-        if(key == 'w' && cursorIndex > 0) {
-            cursorIndex--;
-            change = 1;
-        }else if(key == 's' && cursorIndex < (length - 1)){
-            cursorIndex++;
-            change = 1;
-        }else if(key == 0xd){
-            copyString(entryNames[cursorIndex], fileName);
-            clearScreen();
-            return;
-        }
-
-    }
-
+    selectMenu("Select File:\r\n", entryNames, 16, 7, fileName);
     
 }
 
 void selectCommand(char* command) {
     char commands[11][32];
+    int total = getCommands(commands);
 
-    int cursorIndex = 0;
-    int prevIndex = 0;
-    int i;
-    char key;
-    int totalCommands = getCommands(commands);
-    int change = 1;
-
-    clearScreen();
-    interrupt(0x21, 0, "Select Command: ", 1, 0);
-
-    /*prints all cmds*/
-    for(i = 0; i < totalCommands; i++) {
-        interrupt(0x21, 0, "   ", 0, 0);
-        interrupt(0x21, 0, commands[i], 1, 0);
-    }
-
-    while (1)
-    {
-        if(change){
-            moveCursor(prevIndex + 1, 0);
-            interrupt(0x21, 0, "   ", 0, 0);
-
-            moveCursor(cursorIndex + 1, 0);
-            interrupt(0x21, 0, " > ", 0, 0);
-            
-            prevIndex = cursorIndex;
-            change = 0;
-        }
-
-        key = interrupt(0x16, 0, 0, 0, 0);
-
-        if(key == 'w' && cursorIndex > 0) {
-            cursorIndex--;
-            change = 1;
-        }else if(key == 's' && cursorIndex < (totalCommands - 1)){
-            cursorIndex++;
-            change = 1;
-        }else if(key == 0xd){
-            copyString(commands[cursorIndex], command);
-            clearScreen();
-            return;
-        }
-        
-    }
-
+    selectMenu("Select Command:\r\n", commands, total, 32, command);
 }
+
 
 int getCommands(char commands[][32]){
 
@@ -259,4 +159,52 @@ int getCommands(char commands[][32]){
     length++;
 
     return length;
+}
+
+void selectMenu(char* header, char* entries, int rows, int width, char* result){
+    
+    int cursorIndex = 0;
+    int prevIndex = 0;
+    int i;
+    char key;
+    int change = 1;
+    int offset = getCharCount(header, '\n');
+    int totalEntries = getStringArrayLength(entries, rows, width);
+    
+    clearScreen();
+    interrupt(0x21, 0, header, 0, 0);
+
+    for(i = 0; i < rows; i++){
+        interrupt(0x21, 0, "   ", 0, 0);
+        interrupt(0x21, 0, entries + (i * width), 1, 0);
+    }
+
+    while(1) {
+        if(change) {
+            moveCursor(prevIndex + offset, 0); // +1 assumes header is 1 line
+            interrupt(0x21, 0, "   ", 0, 0);
+
+            moveCursor(cursorIndex + offset, 0);
+            interrupt(0x21, 0, " > ", 0, 0);
+            
+            prevIndex = cursorIndex;
+            change = 0;
+        }
+
+        key = interrupt(0x16, 0, 0, 0, 0);
+
+        if(key == 'w' && cursorIndex > 0) {
+            cursorIndex--;
+            change = 1;
+        } else if(key == 's' && cursorIndex < totalEntries - 1) {
+            cursorIndex++;
+            change = 1;
+        } else if(key == 0xd) { // Enter
+            copyString(entries + (cursorIndex * width), result);
+            clearScreen();
+            return;
+        }
+    }
+
+
 }

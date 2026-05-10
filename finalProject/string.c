@@ -26,12 +26,14 @@ int getStringLength(char* str){
     return length;
 }
 
+
 void clearString(char* str, int length){
     int i;
     for(i = 0; i < length; i++){
         str[i] = 0x0;
     }
 }
+
 
 void copyString(char* str1, char* str2){
     char c;
@@ -46,4 +48,38 @@ void copyString(char* str1, char* str2){
         i++;
     }
     
+}
+
+int getCharCount(char* str, char c){
+    int count = 0;
+    int i = 0;
+    while (str[i] != 0x0)
+    {
+        if(str[i] == c){
+            count++;
+        }
+        i++;
+    }
+    return count;
+}
+
+int getStringArrayLength(char* entries, int rows, int width){
+    int length = 0;
+    char c;
+    int i;
+    for(i = 0; i < rows; i++){
+        c = *(entries + (i * width));
+        if(c == 0x0){
+            return i;
+        }
+    }
+    return i;
+}
+
+
+void clearStringArray(char* strings, int rows, int width){
+    int i;
+    for(i = 0; i < rows; i++){
+        clearString(strings + (i * width), width);
+    }
 }

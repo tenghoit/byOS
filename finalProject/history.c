@@ -1,12 +1,15 @@
 #include "history.h"
 #include "string.h"
 
-void showHistory(char history[10][80]){
+#define lineWidth 80
+#define totalHistory 10
+
+void showHistory(char history[totalHistory][lineWidth]){
     int i;
     char temp[2];
     temp[1] = '\0';
 
-    for(i = 0; i < 10; i++){
+    for(i = 0; i < totalHistory; i++){
         if(history[i][0] == 0x0){
             break;
         }
@@ -18,50 +21,61 @@ void showHistory(char history[10][80]){
     }
 }
 
-void addHistory(char history[10][80], char* line){
+void addHistory(char history[totalHistory][lineWidth], char* line){
     int i;
     int j;
 
-    if(history[9][0] != 0x0){
+    if(history[totalHistory - 1][0] != 0x0){
         removeHistory(history, 0);
     }
 
-    for(i = 0; i < 10; i++){
+    for(i = 0; i < totalHistory; i++){
         if(history[i][0] == 0x0){
-
-            for(j = 0; j < getStringLength(line); j++){
-                history[i][j] = line[j];
-            }
-
+            clearString(history[i], lineWidth);
+            copyString(line, history[i]);
             return;
         }
     }
 }
 
-void removeHistory(char history[10][80], int index){
+void removeHistory(char history[totalHistory][lineWidth], int index){
     int i;
-    int j;
 
-    for(i = index; i < 10; i++){
+    for(i = index; i < totalHistory; i++){
 
-        if(i + 1 >= 10){
-            history[i][0] = 0x0;
+        clearString(history[i], lineWidth);
+        if(i + 1 >= totalHistory){
             break;
         }
-
-        for(j = 0; j < 80; j++){
-            history[i][j] = history[i + 1][j];
-        }
+        copyString(history[i + 1], history[i]);
     }
 }
 
 
-void clearHistory(char history[10][80]){
+void clearHistory(char history[totalHistory][lineWidth]){
     int i;
-    int j;
-    for(i = 0; i < 10; i++){
-        for(j = 0; j < 80; j++){
-            history[i][j] = 0x0;    
-        }
+    for(i = 0; i < totalHistory; i++){
+        clearString(history[i], lineWidth);
+    }
+}
+
+void rebuildLine(char* line, char* op, char* arg1, char* arg2) {
+    int pos = 0;
+    clearString(line, lineWidth);
+
+    copyString(op, line);
+    pos = getStringLength(line);
+
+    if (arg1[0] != 0x0) {
+        line[pos] = ' ';
+        pos++;
+        copyString(arg1, line + pos);
+        pos = getStringLength(line);
+    }
+
+    if (arg2[0] != 0x0) {
+        line[pos] = ' ';
+        pos++;
+        copyString(arg2, line + pos);
     }
 }

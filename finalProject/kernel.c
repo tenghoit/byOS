@@ -46,13 +46,10 @@ void executeProgram(char* name, int segment){
 }
 
 void printString(char* str, int newLine){
-    char ah = 0xe;
 
     int index = 0;
-
-    while(str[index] != 0x0){
-        int ax = ah * 256 + str[index];
-        interrupt(0x10, ax, 0, 0, 0);
+    while(str[index] != 0x0){    
+        printChar(str[index]);
         index++;
     }
 
@@ -60,7 +57,6 @@ void printString(char* str, int newLine){
         interrupt(0x10,0xe*256+0xd, 0, 0, 0);
         interrupt(0x10,0xe*256+0xa, 0, 0, 0);
     }else if(newLine == 2){
-        // We assume the string already had 0x0A, so just move Left
         interrupt(0x10, 0xe * 256 + 0xd, 0, 0, 0); 
     }
 }
@@ -78,12 +74,6 @@ void readString(char* str){
     char spaceKey = 0x20;
     char c;
 
-    /*
-    char temp[2];
-    temp[1] = '\0';   
-    */
-
-
     while(1){
 
         c = interrupt(0x16, 0, 0, 0, 0);
@@ -91,45 +81,27 @@ void readString(char* str){
         if (c == enterKey){
 
             str[index] = 0x0;
-            interrupt(0x21, 0, "", 1, 0);
+            printChar(0xd);
+            printChar(0xa);
             break;
 
         }else if(c == backspaceKey){
 
             if(index <= 0) continue;
 
-            /*
-            temp[0] = backspaceKey;
-            interrupt(0x21, 0, temp, 0, 0);
-            temp[0] = spaceKey;
-            interrupt(0x21, 0, temp, 0, 0);
-            temp[0] = backspaceKey;
-            interrupt(0x21, 0, temp, 0, 0);
-            */
-
             printChar(backspaceKey);
             printChar(spaceKey);
             printChar(backspaceKey);
 
             index--;
+
         }else{
 
-            
-
-            /*
-            temp[0] = c;
-            interrupt(0x21, 0, temp, 0, 0);
-            */
-            
             printChar(c);
-            
             str[index] = c;
             index++;
+
         }
-        /*
-        temp[0] = 0x0;
-        */
-        
     }    
 }
 

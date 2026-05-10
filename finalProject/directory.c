@@ -21,14 +21,6 @@ void getAllEntries(char* entryNames){
 
         copyString(entryName, &entryNames[count * 7]);
 
-        /*
-        
-        for(j = 0; j < 7; j++){
-            entryNames[count * 7 + j] = entryName[j];
-        }
-
-        */
-
         count++;
     }
 }
@@ -142,14 +134,6 @@ void insertEntry(char* dirSector, char* fileName, int index){
         }
     }
 
-    /*
-    
-    for(j = offset + fileNameSize; j < offset + fileEntrySize; j++){
-        dirSector[j] = 0x00;
-    }
-    */
-
-
     clearString(&dirSector[offset + fileNameSize], fileSectors);
 }
 
@@ -160,10 +144,6 @@ void removeEntry(char* dirSector, char* mapSector, int index){
     int start = index * fileEntrySize + fileNameSize;
     int end = start + fileSectors;
     int i;
-
-    /*
-    dirSector[index * fileEntrySize] = 0x00;
-    */
     
     clearString(&dirSector[index * fileEntrySize], 6);
 
